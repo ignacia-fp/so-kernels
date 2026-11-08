@@ -64,6 +64,8 @@ from so_kernels import BemppRsLaplaceSingleLayer
 A = BemppRsLaplaceSingleLayer(
     refinement_level=5,
     function_space_degree=0,
+    quadrature_degree=6,
+    singular_quadrature_degree=4,
     expansion_order=8,
 )
 y = A @ x
