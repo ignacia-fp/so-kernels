@@ -29,6 +29,7 @@ class _Config:
     depth: int | None
     block_size: int
     diagonal_shift: float
+    prune_empty: bool
 
 
 class LaplaceParticleFmm:
@@ -48,6 +49,7 @@ class LaplaceParticleFmm:
         depth: int | None = None,
         block_size: int = 32,
         diagonal_shift: float = 0.0,
+        prune_empty: bool = True,
         dtype: Any = np.float64,
     ) -> None:
         self.dtype = np.dtype(dtype)
@@ -69,7 +71,12 @@ class LaplaceParticleFmm:
         else:
             self.symmetric = False
         self._config = _Config(
-            expansion_order, n_crit, depth, block_size, float(diagonal_shift)
+            expansion_order,
+            n_crit,
+            depth,
+            block_size,
+            float(diagonal_shift),
+            bool(prune_empty),
         )
         self._fmm: Any | None = None
 
@@ -86,7 +93,7 @@ class LaplaceParticleFmm:
             charges,
             n_crit=self._config.n_crit,
             depth=self._config.depth,
-            prune_empty=True,
+            prune_empty=self._config.prune_empty,
         )
         translation = backend.FftFieldTranslation(kernel, block_size=self._config.block_size)
         expansion_order = np.asarray([self._config.expansion_order], dtype=np.uintp)

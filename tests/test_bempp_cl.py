@@ -1,6 +1,7 @@
 import numpy as np
+from types import SimpleNamespace
 
-from so_kernels.bempp_cl import BemppClDiscreteOperator
+from so_kernels.bempp_cl import BemppClDiscreteOperator, _configure_bempp
 
 
 class FlatteningOperator:
@@ -29,3 +30,41 @@ def test_bempp_cl_adapter_preserves_block_order_and_transpose():
     np.testing.assert_allclose(operator @ vectors, matrix @ vectors)
     np.testing.assert_allclose(operator.transpose_operator @ vectors, matrix.T @ vectors)
     assert not np.allclose(matrix.T @ vectors, matrix.conj().T @ vectors)
+
+
+def test_bempp_parameters_are_explicitly_configurable(monkeypatch):
+    fmm = SimpleNamespace()
+    quadrature = SimpleNamespace()
+    api = SimpleNamespace(
+        DEFAULT_PRECISION=None,
+        GLOBAL_PARAMETERS=SimpleNamespace(fmm=fmm, quadrature=quadrature),
+    )
+    monkeypatch.setattr(
+        "so_kernels.backends.load_bempp_cl",
+        lambda: SimpleNamespace(api=api),
+    )
+
+    configured = _configure_bempp(
+        precision="single",
+        expansion_order=8,
+        ncrit=256,
+        near_field_representation="sparse",
+        fmm_backend="exafmm",
+        fmm_depth=7,
+        fmm_debug=True,
+        fmm_dense_evaluation=True,
+        regular_quadrature=6,
+        singular_quadrature=8,
+    )
+
+    assert configured is api
+    assert api.DEFAULT_PRECISION == "single"
+    assert fmm.expansion_order == 8
+    assert fmm.ncrit == 256
+    assert fmm.near_field_representation == "sparse"
+    assert fmm.backend == "exafmm"
+    assert fmm.depth == 7
+    assert fmm.debug is True
+    assert fmm.dense_evaluation is True
+    assert quadrature.regular == 6
+    assert quadrature.singular == 8

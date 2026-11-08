@@ -144,16 +144,37 @@ class _BemppClTranspose:
 
 
 def _configure_bempp(
-    *, precision: str, expansion_order: int, regular_quadrature: int
+    *,
+    precision: str,
+    expansion_order: int,
+    ncrit: int,
+    near_field_representation: str,
+    fmm_backend: str,
+    fmm_depth: int,
+    fmm_debug: bool,
+    fmm_dense_evaluation: bool,
+    regular_quadrature: int,
+    singular_quadrature: int,
 ) -> Any:
     from .backends import load_bempp_cl
 
     if precision not in {"single", "double"}:
         raise ValueError("precision must be 'single' or 'double'")
+    if expansion_order < 1 or ncrit < 1 or fmm_depth < 0:
+        raise ValueError("expansion_order and ncrit must be positive; fmm_depth must be nonnegative")
+    if near_field_representation not in {"evaluate", "sparse"}:
+        raise ValueError("near_field_representation must be 'evaluate' or 'sparse'")
     api = load_bempp_cl().api
     api.DEFAULT_PRECISION = precision
     api.GLOBAL_PARAMETERS.fmm.expansion_order = int(expansion_order)
+    api.GLOBAL_PARAMETERS.fmm.ncrit = int(ncrit)
+    api.GLOBAL_PARAMETERS.fmm.near_field_representation = near_field_representation
+    api.GLOBAL_PARAMETERS.fmm.backend = str(fmm_backend)
+    api.GLOBAL_PARAMETERS.fmm.depth = int(fmm_depth)
+    api.GLOBAL_PARAMETERS.fmm.debug = bool(fmm_debug)
+    api.GLOBAL_PARAMETERS.fmm.dense_evaluation = bool(fmm_dense_evaluation)
     api.GLOBAL_PARAMETERS.quadrature.regular = int(regular_quadrature)
+    api.GLOBAL_PARAMETERS.quadrature.singular = int(singular_quadrature)
     return api
 
 
@@ -180,15 +201,29 @@ def bempp_cl_laplace_single_layer(
     *,
     assembler: str = "exafmm",
     precision: str = "double",
-    expansion_order: int = 8,
-    regular_quadrature: int = 2,
+    expansion_order: int = 5,
+    ncrit: int = 400,
+    near_field_representation: str = "evaluate",
+    fmm_backend: str = "auto",
+    fmm_depth: int = 4,
+    fmm_debug: bool = False,
+    fmm_dense_evaluation: bool = False,
+    regular_quadrature: int = 4,
+    singular_quadrature: int = 4,
 ) -> BemppClDiscreteOperator:
     """Build the DP0 Laplace single-layer operator used by rsrs-exps."""
 
     api = _configure_bempp(
         precision=precision,
         expansion_order=expansion_order,
+        ncrit=ncrit,
+        near_field_representation=near_field_representation,
+        fmm_backend=fmm_backend,
+        fmm_depth=fmm_depth,
+        fmm_debug=fmm_debug,
+        fmm_dense_evaluation=fmm_dense_evaluation,
         regular_quadrature=regular_quadrature,
+        singular_quadrature=singular_quadrature,
     )
     grid = _load_grid(api, grid)
     space = api.function_space(grid, "DP", 0)
@@ -212,8 +247,15 @@ def bempp_cl_helmholtz_combined(
     *,
     assembler: str = "exafmm",
     precision: str = "double",
-    expansion_order: int = 8,
-    regular_quadrature: int = 2,
+    expansion_order: int = 5,
+    ncrit: int = 400,
+    near_field_representation: str = "evaluate",
+    fmm_backend: str = "auto",
+    fmm_depth: int = 4,
+    fmm_debug: bool = False,
+    fmm_dense_evaluation: bool = False,
+    regular_quadrature: int = 4,
+    singular_quadrature: int = 4,
 ) -> BemppClDiscreteOperator:
     """Build ``0.5 I + D' - i k S`` and its algebraic transpose.
 
@@ -224,7 +266,14 @@ def bempp_cl_helmholtz_combined(
     api = _configure_bempp(
         precision=precision,
         expansion_order=expansion_order,
+        ncrit=ncrit,
+        near_field_representation=near_field_representation,
+        fmm_backend=fmm_backend,
+        fmm_depth=fmm_depth,
+        fmm_debug=fmm_debug,
+        fmm_dense_evaluation=fmm_dense_evaluation,
         regular_quadrature=regular_quadrature,
+        singular_quadrature=singular_quadrature,
     )
     grid = _load_grid(api, grid)
     space = api.function_space(grid, "DP", 0)

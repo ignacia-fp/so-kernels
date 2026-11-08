@@ -4,7 +4,8 @@ from so_kernels.native import BemppRsLaplaceSingleLayer
 
 
 class FakeNativeOperator:
-    shape = (3, 3)
+    # A refinement-zero regular sphere has eight triangular DP0 cells.
+    shape = (8, 8)
 
     def matvec(self, values):
         return 2.0 * values
@@ -21,8 +22,8 @@ class FakeNativeOperator:
 
 def test_native_facade_forwards_vector_and_matrix_operations():
     operator = BemppRsLaplaceSingleLayer(0, _native_operator=FakeNativeOperator())
-    vector = np.arange(3.0)
-    matrix = np.arange(6.0).reshape(3, 2)
+    vector = np.arange(8.0)
+    matrix = np.arange(16.0).reshape(8, 2)
 
     np.testing.assert_allclose(operator @ vector, 2.0 * vector)
     np.testing.assert_allclose(operator @ matrix, 2.0 * matrix)
@@ -34,6 +35,6 @@ def test_native_facade_checks_shapes():
     operator = BemppRsLaplaceSingleLayer(0, _native_operator=FakeNativeOperator())
 
     with np.testing.assert_raises(ValueError):
-        operator.matvec(np.zeros(2))
+        operator.matvec(np.zeros(7))
     with np.testing.assert_raises(ValueError):
-        operator.matmat(np.zeros((2, 4)))
+        operator.matmat(np.zeros((7, 4)))

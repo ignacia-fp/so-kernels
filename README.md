@@ -84,7 +84,13 @@ laplace = bempp_cl_laplace_single_layer(
     "grid.msh", assembler="exafmm", expansion_order=8
 )
 combined = bempp_cl_helmholtz_combined(
-    "grid.msh", kappa=2.0, assembler="exafmm", expansion_order=8
+    "grid.msh",
+    kappa=2.0,
+    assembler="exafmm",
+    precision="double",
+    expansion_order=8,
+    ncrit=400,
+    near_field_representation="evaluate",
 )
 
 Y = combined @ omega_y
@@ -93,6 +99,16 @@ Z = combined.transpose_operator @ omega_z
 
 For the complex combined operator, `transpose_operator` is the explicit
 non-conjugating transpose required by RSRS, not SciPy's adjoint convention.
+
+Bempp-cl constructor defaults match Bempp-cl itself: double precision,
+expansion order 5, `ncrit=400`, near fields evaluated directly, FMM depth 4,
+and regular/singular quadrature order 4. All are JSON-serializable operator
+parameters and can be overridden per experiment.
+
+The direct KiFMM particle constructor retains the defaults used by this
+project: expansion order 6, `n_crit=150`, FFT block size 32, automatic depth,
+and empty-tree pruning. It exposes `expansion_order`, `n_crit` or `depth`,
+`block_size`, `prune_empty`, and `dtype` as operator parameters.
 
 The native object owns one persistent Rust worker. Arrays cross the boundary,
 but the operator and KiFMM evaluator are built once and reused. The initial
