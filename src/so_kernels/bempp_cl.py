@@ -47,12 +47,14 @@ class BemppClDiscreteOperator:
         dtype: Any,
         points: ArrayLike | None = None,
         symmetric: bool = False,
+        right_hand_side_provider: Any | None = None,
     ) -> None:
         self._operator = operator
         self._transpose_operator = transpose_operator
         self.shape = (int(dimension), int(dimension))
         self.dtype = np.dtype(dtype)
         self.symmetric = bool(symmetric)
+        self._right_hand_side_provider = right_hand_side_provider
         if points is not None:
             coordinates = np.asarray(points, dtype=np.float64)
             if coordinates.shape != (self.shape[0], 3):
@@ -122,6 +124,19 @@ class BemppClDiscreteOperator:
             matmat=self.matmat,
             dtype=self.dtype,
         )
+
+    def right_hand_sides(self, *, count: int) -> NDArray:
+        """Return physical right-hand sides supplied by the operator family."""
+
+        if self._right_hand_side_provider is None:
+            raise NotImplementedError("this Bempp-cl operator has no physical RHS provider")
+        values = np.asarray(self._right_hand_side_provider(int(count)), dtype=self.dtype)
+        if values.shape != (self.dimension, int(count)):
+            raise RuntimeError(
+                "right-hand-side provider returned "
+                f"{values.shape}, expected ({self.dimension}, {int(count)})"
+            )
+        return values
 
 
 class _BemppClTranspose:
@@ -194,6 +209,51 @@ def _grid_centroids(grid: Any, dimension: int) -> NDArray[np.float64]:
         f"grid centroids must have shape ({dimension}, 3) or (3, {dimension}), "
         f"got {points.shape}"
     )
+
+
+def _fibonacci_directions(count: int) -> NDArray[np.float64]:
+    """Reproduce the historical rsrs-exps incident-field directions."""
+
+    if count < 1:
+        raise ValueError("right-hand-side count must be positive")
+    if count == 1:
+        return np.array([[1.0, 0.0, 0.0]])
+    indices = np.arange(count, dtype=float) + 0.5
+    phi = np.arccos(1.0 - 2.0 * indices / count)
+    theta = np.pi * (1.0 + np.sqrt(5.0)) * indices
+    directions = np.column_stack(
+        (
+            np.cos(theta) * np.sin(phi),
+            np.sin(theta) * np.sin(phi),
+            np.cos(phi),
+        )
+    )
+    directions /= np.linalg.norm(directions, axis=1)[:, None]
+    return directions
+
+
+def _helmholtz_combined_rhs_provider(api: Any, space: Any, kappa: float, dtype: Any):
+    """Build the original combined-field plane-wave right-hand sides."""
+
+    def provider(count: int) -> NDArray:
+        columns = []
+        for direction in _fibonacci_directions(count):
+            direction = np.asarray(direction, dtype=np.float64)
+
+            @api.complex_callable
+            def combined_data(x, n, domain_index, result):
+                result[0] = (
+                    1j
+                    * kappa
+                    * np.exp(1j * kappa * np.dot(direction, x))
+                    * (np.dot(n, direction) - 1.0)
+                )
+
+            grid_function = api.GridFunction(space, fun=combined_data)
+            columns.append(np.asarray(grid_function.projections(space)).ravel())
+        return np.column_stack(columns).astype(dtype, copy=False)
+
+    return provider
 
 
 def bempp_cl_laplace_single_layer(
@@ -297,4 +357,7 @@ def bempp_cl_helmholtz_combined(
         dimension=space.global_dof_count,
         dtype=dtype,
         points=_grid_centroids(grid, space.global_dof_count),
+        right_hand_side_provider=_helmholtz_combined_rhs_provider(
+            api, space, kappa, dtype
+        ),
     )

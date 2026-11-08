@@ -32,6 +32,20 @@ def test_bempp_cl_adapter_preserves_block_order_and_transpose():
     assert not np.allclose(matrix.T @ vectors, matrix.conj().T @ vectors)
 
 
+def test_bempp_adapter_exposes_operator_supplied_right_hand_sides():
+    matrix = np.eye(2)
+    operator = BemppClDiscreteOperator(
+        matrix,
+        matrix,
+        dimension=2,
+        dtype=np.complex128,
+        right_hand_side_provider=lambda count: np.arange(2 * count).reshape(2, count),
+    )
+    np.testing.assert_array_equal(
+        operator.right_hand_sides(count=3), np.arange(6).reshape(2, 3)
+    )
+
+
 def test_bempp_parameters_are_explicitly_configurable(monkeypatch):
     fmm = SimpleNamespace()
     quadrature = SimpleNamespace()
