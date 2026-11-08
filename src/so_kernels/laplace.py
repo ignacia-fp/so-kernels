@@ -28,6 +28,7 @@ class _Config:
     n_crit: int | None
     depth: int | None
     block_size: int
+    diagonal_shift: float
 
 
 class LaplaceParticleFmm:
@@ -46,6 +47,7 @@ class LaplaceParticleFmm:
         n_crit: int | None = 150,
         depth: int | None = None,
         block_size: int = 32,
+        diagonal_shift: float = 0.0,
         dtype: Any = np.float64,
     ) -> None:
         self.dtype = np.dtype(dtype)
@@ -59,7 +61,16 @@ class LaplaceParticleFmm:
         self._sources = _points(sources, "sources", self.dtype)
         self._targets = _points(targets, "targets", self.dtype)
         self._shape = (self._targets.size // 3, self._sources.size // 3)
-        self._config = _Config(expansion_order, n_crit, depth, block_size)
+        if self._shape[0] == self._shape[1] and np.array_equal(
+            self._sources, self._targets
+        ):
+            self.points = self._targets.reshape(3, -1).T.copy()
+            self.symmetric = True
+        else:
+            self.symmetric = False
+        self._config = _Config(
+            expansion_order, n_crit, depth, block_size, float(diagonal_shift)
+        )
         self._fmm: Any | None = None
 
     @property
@@ -89,7 +100,16 @@ class LaplaceParticleFmm:
             self._fmm.clear()
             self._fmm.attach_charges_unordered(charges)
         self._fmm.evaluate()
-        return np.array(self._fmm.all_potentials_u[0, :, 0], copy=True)
+        result = np.array(self._fmm.all_potentials_u[0, :, 0], copy=True)
+        if self._config.diagonal_shift:
+            if self.shape[0] != self.shape[1] or not np.array_equal(
+                self._sources, self._targets
+            ):
+                raise ValueError(
+                    "diagonal_shift requires identical source and target points"
+                )
+            result += self._config.diagonal_shift * vector
+        return result
 
     def matvec(self, vector: ArrayLike) -> NDArray:
         values = np.asarray(vector, dtype=self.dtype)

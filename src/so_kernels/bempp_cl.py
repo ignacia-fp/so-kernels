@@ -45,11 +45,21 @@ class BemppClDiscreteOperator:
         *,
         dimension: int,
         dtype: Any,
+        points: ArrayLike | None = None,
+        symmetric: bool = False,
     ) -> None:
         self._operator = operator
         self._transpose_operator = transpose_operator
         self.shape = (int(dimension), int(dimension))
         self.dtype = np.dtype(dtype)
+        self.symmetric = bool(symmetric)
+        if points is not None:
+            coordinates = np.asarray(points, dtype=np.float64)
+            if coordinates.shape != (self.shape[0], 3):
+                raise ValueError(
+                    f"points must have shape ({self.shape[0]}, 3), got {coordinates.shape}"
+                )
+            self.points = coordinates
 
     @property
     def dimension(self) -> int:
@@ -153,6 +163,18 @@ def _load_grid(api: Any, grid: Any) -> Any:
     return grid
 
 
+def _grid_centroids(grid: Any, dimension: int) -> NDArray[np.float64]:
+    points = np.asarray(grid.centroids, dtype=np.float64)
+    if points.shape == (dimension, 3):
+        return points
+    if points.shape == (3, dimension):
+        return points.T
+    raise ValueError(
+        f"grid centroids must have shape ({dimension}, 3) or (3, {dimension}), "
+        f"got {points.shape}"
+    )
+
+
 def bempp_cl_laplace_single_layer(
     grid: Any,
     *,
@@ -179,6 +201,8 @@ def bempp_cl_laplace_single_layer(
         operator.T,
         dimension=space.global_dof_count,
         dtype=dtype,
+        points=_grid_centroids(grid, space.global_dof_count),
+        symmetric=True,
     )
 
 
@@ -223,4 +247,5 @@ def bempp_cl_helmholtz_combined(
         transpose,
         dimension=space.global_dof_count,
         dtype=dtype,
+        points=_grid_centroids(grid, space.global_dof_count),
     )

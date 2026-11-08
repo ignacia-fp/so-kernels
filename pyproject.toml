@@ -15,10 +15,10 @@ dependencies = [
 
 [project.optional-dependencies]
 backends = [
-    "bempp-rs @ git+https://github.com/ignacia-fp/bempp-rs-for-rsrs.git@main",
-    "bempp-rs-operators @ git+https://github.com/ignacia-fp/bempp-rs-for-rsrs.git@main#subdirectory=python-operators",
-    "bempp-cl @ git+https://github.com/ignacia-fp/bempp-cl-rsrs.git@f16-gmsh-fixes",
-    "kifmm_py @ git+https://github.com/ignacia-fp/kifmm-for-rsrs.git@main#subdirectory=kifmm",
+    "bempp-rs @ git+https://github.com/ignacia-fp/bempp-rs-for-rsrs.git@python-operator-interface",
+    "bempp-rs-operators @ git+https://github.com/ignacia-fp/bempp-rs-for-rsrs.git@python-operator-interface#subdirectory=python-operators",
+    "bempp-cl @ git+https://github.com/ignacia-fp/bempp-cl-rsrs.git@2eec19f9bd009e49ce81e6cc048bb9928d06014a",
+    "kifmm_py @ git+https://github.com/ignacia-fp/kifmm-for-rsrs.git@d22d1f44e8e77826326ae4c9a8968d9891f01e5f#subdirectory=kifmm",
 ]
 dev = ["pytest>=8,<9"]
 

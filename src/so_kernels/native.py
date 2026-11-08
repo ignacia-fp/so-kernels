@@ -8,6 +8,51 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 
+def _regular_sphere_dp0_points(refinement_level: int) -> NDArray[np.float64]:
+    """Cell centroids in Bempp-rs ``regular_sphere`` cell order."""
+
+    points = [
+        np.array(value, dtype=np.float64)
+        for value in (
+            (0.0, 0.0, 1.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (-1.0, 0.0, 0.0),
+            (0.0, -1.0, 0.0),
+            (0.0, 0.0, -1.0),
+        )
+    ]
+    cells = [
+        (0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 1),
+        (5, 2, 1), (5, 3, 2), (5, 4, 3), (5, 1, 4),
+    ]
+    for _ in range(refinement_level):
+        edge_points: dict[tuple[int, int], int] = {}
+        refined: list[tuple[int, int, int]] = []
+        for cell in cells:
+            edges = []
+            for local_i, local_j in ((1, 2), (0, 2), (0, 1)):
+                edge = tuple(sorted((cell[local_i], cell[local_j])))
+                if edge not in edge_points:
+                    midpoint = points[edge[0]] + points[edge[1]]
+                    midpoint /= np.linalg.norm(midpoint)
+                    edge_points[edge] = len(points)
+                    points.append(midpoint)
+                edges.append(edge_points[edge])
+            refined.extend(
+                (
+                    (cell[0], edges[2], edges[1]),
+                    (cell[1], edges[0], edges[2]),
+                    (cell[2], edges[1], edges[0]),
+                    (edges[0], edges[1], edges[2]),
+                )
+            )
+        cells = refined
+    vertices = np.asarray(points)
+    centroids = vertices[np.asarray(cells)].mean(axis=1)
+    return centroids / np.linalg.norm(centroids, axis=1)[:, None]
+
+
 class BemppRsLaplaceSingleLayer:
     """Persistent matrix-free Laplace single-layer operator from Bempp-rs.
 
@@ -46,6 +91,13 @@ class BemppRsLaplaceSingleLayer:
         self._operator = _native_operator
         self.shape = tuple(int(value) for value in self._operator.shape)
         self.dtype = np.dtype(np.float64)
+        self.symmetric = True
+        if function_space_degree == 0:
+            self.points = _regular_sphere_dp0_points(refinement_level)
+            if self.points.shape[0] != self.shape[0]:
+                raise RuntimeError(
+                    "Bempp-rs DP0 point count does not match the operator dimension"
+                )
 
     @property
     def dimension(self) -> int:

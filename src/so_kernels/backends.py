@@ -57,7 +57,12 @@ def load_bempp_cl() -> ModuleType:
     """Load the Bempp-cl fork used by rsrs-exps."""
 
     try:
-        return import_module("bempp_cl")
+        module = import_module("bempp_cl")
+        # Bempp-cl does not guarantee that importing its namespace eagerly
+        # attaches the public ``api`` package.
+        if not hasattr(module, "api"):
+            module.api = import_module("bempp_cl.api")
+        return module
     except ImportError as exc:  # pragma: no cover - installation dependent
         raise ImportError(
             "bempp_cl is not installed in this Python environment. Run "
